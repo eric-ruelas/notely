@@ -1,8 +1,6 @@
 # Notely
 
-macOS Stickies is fine — it has worked well enough, but it comes with limitations. You can't easily change the font, adjust font sizes, or even swap the color. And honestly, they just lack creativity.
-
-So I built Notely — a sticky notes app styled after FigJam's stickies, designed to be easier to customize and a little more fun to use.
+macOS Stickies works — but barely. No font control, no real color options, and zero personality. I wanted something more expressive, so I built Notely: a sticky notes app for macOS inspired by FigJam's stickies, with proper customization built in.
 
 ![Notely screenshot](screenshot.png)
 
