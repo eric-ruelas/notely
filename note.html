@@ -634,8 +634,7 @@ function syncActive() {
   btnLink.style.opacity = hasSel ? '1' : '0.35'
   btnLink.style.pointerEvents = hasSel ? '' : 'none'
 }
-editor.addEventListener('keyup', syncActive)
-editor.addEventListener('mouseup', syncActive)
+document.addEventListener('selectionchange', syncActive)
 
 // ── Save ──
 function schedSave() {
@@ -674,7 +673,7 @@ window.api.initNote(data => {
     const match = [...document.querySelectorAll('#font-menu [data-font]')].find(el => el.dataset.font === data.font)
     if (match) document.getElementById('font-menu').querySelectorAll('.drop-item').forEach(i => i.classList.toggle('active', i === match))
   }
-  editor.focus()
+  if (!data.content) editor.focus()
 })
 </script>
 </body>
