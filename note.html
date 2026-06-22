@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Note</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { -webkit-tap-highlight-color: transparent; }
+  *:focus { outline: none !important; box-shadow: none !important; -webkit-box-shadow: none !important; }
+
+  :root { --color: #BFD7FF; }
+
+  html, body {
+    width: 100%; height: 100%;
+    background: transparent;
+    overflow: hidden;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    user-select: none;
+  }
+
+  /* ── Card ── */
+  .card {
+    width: 100%; height: 100%;
+    background: var(--color);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.1);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Title bar / drag handle */
+  .titlebar {
+    height: 32px; flex-shrink: 0;
+    display: flex; align-items: center;
+    padding: 0 10px; gap: 6px;
+    -webkit-app-region: drag;
+  }
+  .actions {
+    display: flex; gap: 6px;
+    -webkit-app-region: no-drag;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  body:hover .actions { opacity: 1; }
+  .btn-dot {
+    width: 13px; height: 13px; border-radius: 50%;
+    border: none; cursor: pointer;
+    font-size: 8px; font-weight: 800;
+    color: transparent; transition: color 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .btn-dot:hover { color: rgba(0,0,0,0.5); }
+  .btn-close { background: #FF5F57; }
+  .btn-new   { background: #28C941; }
+
+  /* Editor */
+  .editor-wrap {
+    flex: 1; overflow-y: auto; min-height: 0;
+    padding: 4px 14px 80px 14px;
+    -webkit-app-region: no-drag;
+  }
+  .editor-wrap::-webkit-scrollbar { width: 4px; }
+  .editor-wrap::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.15); border-radius: 2px; }
+
+  .editor {
+    min-height: 40px; width: 100%;
+    outline: none; border: none; box-shadow: none;
+    font-size: 12px; line-height: 1.65;
+    color: rgba(0,0,0,0.82);
+    word-break: break-word;
+    user-select: text; cursor: text;
+    font-family: inherit;
+  }
+  .editor:empty:before {
+    content: attr(data-placeholder);
+    color: rgba(0,0,0,0.3); pointer-events: none;
+  }
+  .editor b, .editor strong { font-weight: 700; }
+  .editor s { text-decoration: line-through; }
+  .editor ul { padding-left: 20px; font-family: inherit; font-size: inherit; }
+  .editor ul li { list-style: disc; font-family: inherit; font-size: inherit; }
+  .editor a { color: #1a6ef5; text-decoration: underline; }
+
+  /* ── Toolbar (fixed at bottom of card) ── */
+  .toolbar-wrap {
+    position: absolute;
+    bottom: 12px; left: 16px; right: 16px;
+    display: flex; justify-content: center;
+    pointer-events: none; z-index: 10;
+    -webkit-app-region: no-drag;
+  }
+
+  .toolbar {
+    background: #1e1e1e; border-radius: 40px;
+    padding: 0 8px; height: 44px;
+    display: flex; align-items: center; gap: 1px;
+    white-space: nowrap;
+    opacity: 0; transform: translateY(4px);
+    transition: opacity 0.15s, transform 0.15s;
+    pointer-events: none;
+  }
+  .toolbar-wrap.active .toolbar {
+    opacity: 1; transform: translateY(0); pointer-events: all;
+  }
+
+  .tb-sep {
+    width: 1px; height: 20px;
+    background: rgba(255,255,255,0.12);
+    margin: 0 3px; flex-shrink: 0;
+  }
+
+  .tb-btn {
+    background: none; border: none;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer; font-size: 14px; font-weight: 700;
+    width: 34px; height: 34px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.1s, color 0.1s;
+    font-family: inherit; flex-shrink: 0;
+  }
+  .tb-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .tb-btn.active { background: rgba(255,255,255,0.18); color: #fff; }
+
+  .tb-drop-btn {
+    background: none; border: none;
+    color: rgba(255,255,255,0.75);
+    cursor: pointer; font-family: inherit;
+    font-size: 13px; font-weight: 500;
+    padding: 0 8px; height: 34px; border-radius: 8px;
+    display: flex; align-items: center; gap: 3px;
+    transition: background 0.1s, color 0.1s;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .tb-drop-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .tb-drop-btn .caret { font-size: 8px; opacity: 0.5; }
+
+  /* Color dot button */
+  .color-dot-btn {
+    width: 26px; height: 26px; border-radius: 50%;
+    border: 2.5px solid rgba(255,255,255,0.25);
+    cursor: pointer; flex-shrink: 0;
+    transition: border-color 0.1s, transform 0.1s;
+    margin: 0 4px;
+  }
+  .color-dot-btn:hover { border-color: rgba(255,255,255,0.5); transform: scale(1.08); }
+
+  /* ── Popups — direct children of card, always within bounds ── */
+  .popup {
+    position: absolute;
+    bottom: 68px; /* above toolbar */
+    left: 50%; transform: translateX(-50%);
+    background: #242424; border-radius: 14px;
+    padding: 10px; z-index: 100;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.35);
+    display: none;
+    -webkit-app-region: no-drag;
+  }
+  .popup.open { display: block; }
+
+  /* Color picker */
+  #color-pop {
+    display: none; gap: 7px; flex-wrap: wrap;
+    width: 136px;
+  }
+  #color-pop.open { display: flex; }
+
+  .swatch {
+    width: 32px; height: 32px; border-radius: 8px;
+    cursor: pointer; border: 2.5px solid transparent;
+    transition: transform 0.1s, border-color 0.1s;
+    flex-shrink: 0;
+  }
+  .swatch:hover { transform: scale(1.1); }
+  .swatch.active { border-color: white; }
+
+  /* Font / Size menus */
+  .drop-menu {
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 150px;
+  }
+
+  .drop-item {
+    background: none; border: none;
+    color: rgba(255,255,255,0.82);
+    cursor: pointer; text-align: left;
+    padding: 8px 12px; border-radius: 8px;
+    font-family: inherit; font-size: 14px;
+    display: flex; align-items: center; gap: 10px;
+    transition: background 0.1s;
+  }
+  .drop-item:hover { background: rgba(255,255,255,0.1); color: #fff; }
+  .drop-item .check { font-size: 11px; opacity: 0; width: 14px; flex-shrink: 0; }
+  .drop-item.active .check { opacity: 1; }
+
+  /* Link modal */
+  #link-pop {
+    display: none;
+    width: calc(100% - 32px);
+    left: 16px; transform: none;
+  }
+  #link-pop.open { display: flex; gap: 8px; align-items: center; }
+
+  .link-input {
+    flex: 1; background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 8px; color: #fff;
+    font-size: 13px; padding: 7px 10px;
+    font-family: inherit; min-width: 0;
+  }
+  .link-input::placeholder { color: rgba(255,255,255,0.35); }
+  .link-apply {
+    background: #3b82f6; border: none; color: #fff;
+    border-radius: 8px; padding: 7px 14px;
+    cursor: pointer; font-size: 13px; font-weight: 600;
+    font-family: inherit; flex-shrink: 0;
+  }
+  .link-apply:hover { background: #2563eb; }
+</style>
+</head>
+<body>
+<div class="card" id="card">
+
+  <!-- Drag bar -->
+  <div class="titlebar">
+    <div class="actions">
+      <button class="btn-dot btn-close" id="btn-close">✕</button>
+      <button class="btn-dot btn-new"   id="btn-new">+</button>
+    </div>
+  </div>
+
+  <!-- Editor -->
+  <div class="editor-wrap">
+    <div class="editor" id="editor"
+         contenteditable="true"
+         data-placeholder="Start typing…"
+         spellcheck="true"></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="toolbar-wrap" id="toolbar-wrap">
+    <div class="toolbar" id="toolbar">
+
+      <!-- Color -->
+      <button class="color-dot-btn" id="color-btn" title="Note color"></button>
+      <div class="tb-sep"></div>
+
+      <!-- Font family -->
+      <button class="tb-drop-btn" id="font-btn">
+        <span id="font-label">Aa</span><span class="caret">▾</span>
+      </button>
+      <div class="tb-sep"></div>
+
+      <!-- Font size -->
+      <button class="tb-drop-btn" id="size-btn">
+        <span id="size-label">Small</span><span class="caret">▾</span>
+      </button>
+      <div class="tb-sep"></div>
+
+      <button class="tb-btn" id="btn-bold"   title="Bold (⌘B)"><b>B</b></button>
+      <button class="tb-btn" id="btn-strike" title="Strikethrough"><s>S</s></button>
+      <button class="tb-btn" id="btn-link"   title="Link">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        </svg>
+      </button>
+      <button class="tb-btn" id="btn-list" title="Bullet list">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="9" y1="6" x2="20" y2="6"/><line x1="9" y1="12" x2="20" y2="12"/><line x1="9" y1="18" x2="20" y2="18"/>
+          <circle cx="4" cy="6" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="4" cy="12" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="4" cy="18" r="1.5" fill="currentColor" stroke="none"/>
+        </svg>
+      </button>
+
+    </div>
+  </div>
+
+  <!-- Popups — inside card so they're always within bounds -->
+  <div class="popup" id="color-pop"></div>
+
+  <div class="popup" id="font-pop">
+    <div class="drop-menu" id="font-menu">
+      <button class="drop-item active" data-font="system"><span class="check">✓</span><span>Simple</span></button>
+      <button class="drop-item" data-font="Georgia, serif"><span class="check">✓</span><span style="font-family:Georgia,serif">Bookish</span></button>
+      <button class="drop-item" data-font="'SF Mono', Menlo, monospace"><span class="check">✓</span><span style="font-family:monospace">Technical</span></button>
+      <button class="drop-item" data-font="'Comic Sans MS', cursive"><span class="check">✓</span><span style="font-family:'Comic Sans MS',cursive;font-style:italic">Scribbled</span></button>
+    </div>
+  </div>
+
+  <div class="popup" id="size-pop">
+    <div class="drop-menu" id="size-menu">
+      <button class="drop-item active" data-size="12" data-label="Small"><span class="check">✓</span><span style="font-size:12px">Small</span></button>
+      <button class="drop-item" data-size="15" data-label="Medium"><span class="check">✓</span><span style="font-size:15px">Medium</span></button>
+      <button class="drop-item" data-size="19" data-label="Large"><span class="check">✓</span><span style="font-size:19px">Large</span></button>
+      <button class="drop-item" data-size="24" data-label="Extra large"><span class="check">✓</span><span style="font-size:24px">Extra large</span></button>
+      <button class="drop-item" data-size="32" data-label="Huge"><span class="check">✓</span><span style="font-size:32px">Huge</span></button>
+    </div>
+  </div>
+
+  <div class="popup" id="link-pop">
+    <input class="link-input" id="link-input" type="url" placeholder="https://" />
+    <button class="link-apply" id="link-apply">Apply</button>
+  </div>
+
+</div><!-- .card -->
+
+<script>
+const COLORS = ['#BFD7FF','#FFF176','#B9F5D0','#FFD6E0','#E8D5FF','#FFE0B2','#F5F5F5','#CFD8DC']
+const SYSTEM_FONT = '-apple-system, BlinkMacSystemFont, sans-serif'
+
+let noteId   = null
+let noteColor = '#BFD7FF'
+let noteFont  = 'system'
+let noteSize  = 12
+let saveTimer = null
+
+const editor      = document.getElementById('editor')
+const toolbarWrap = document.getElementById('toolbar-wrap')
+const colorBtn    = document.getElementById('color-btn')
+const colorPop    = document.getElementById('color-pop')
+const fontPop     = document.getElementById('font-pop')
+const sizePop     = document.getElementById('size-pop')
+const linkPop     = document.getElementById('link-pop')
+const linkInput   = document.getElementById('link-input')
+const sizeLabel   = document.getElementById('size-label')
+
+// Enable CSS-based execCommand output
+document.execCommand('styleWithCSS', false, true)
+
+// ── Build color swatches ──
+COLORS.forEach(hex => {
+  const sw = document.createElement('div')
+  sw.className = 'swatch'; sw.style.background = hex; sw.dataset.hex = hex
+  sw.addEventListener('mousedown', e => { e.preventDefault(); setColor(hex) })
+  colorPop.appendChild(sw)
+})
+
+function setColor(hex) {
+  noteColor = hex
+  document.documentElement.style.setProperty('--color', hex)
+  colorBtn.style.background = hex
+  colorPop.querySelectorAll('.swatch').forEach(s => s.classList.toggle('active', s.dataset.hex === hex))
+  closeAll()
+  schedSave()
+}
+
+// ── Toolbar visibility ──
+function showToolbar() { toolbarWrap.classList.add('active') }
+function hideToolbar() { toolbarWrap.classList.remove('active'); closeAll() }
+
+editor.addEventListener('click', showToolbar)
+window.api.onBlur(()  => hideToolbar())
+window.api.onFocus(() => showToolbar())
+
+// ── Popup management ──
+const allPopups = [colorPop, fontPop, sizePop, linkPop]
+
+function closeAll() { allPopups.forEach(p => p.classList.remove('open')) }
+
+function togglePopup(popup, e) {
+  e.preventDefault(); e.stopPropagation()
+  const isOpen = popup.classList.contains('open')
+  closeAll()
+  if (!isOpen) popup.classList.add('open')
+}
+
+// Close when clicking outside toolbar/popups
+document.addEventListener('mousedown', e => {
+  const inToolbar = toolbarWrap.contains(e.target)
+  const inPopup   = allPopups.some(p => p.contains(e.target))
+  if (!inToolbar && !inPopup && !editor.contains(e.target)) hideToolbar()
+  if (!inToolbar && !inPopup) closeAll()
+})
+
+// ── Color button ──
+colorBtn.addEventListener('mousedown', e => togglePopup(colorPop, e))
+
+// ── Font family ──
+document.getElementById('font-btn').addEventListener('mousedown', e => togglePopup(fontPop, e))
+
+const fontLabel = document.getElementById('font-label')
+
+function setFontLabel(font) {
+  const item = [...document.querySelectorAll('#font-menu .drop-item')].find(el => el.dataset.font === font)
+  fontLabel.textContent = item ? item.querySelector('span:last-child').textContent : 'Aa'
+}
+
+document.getElementById('font-menu').querySelectorAll('.drop-item').forEach(item => {
+  item.addEventListener('mousedown', e => {
+    e.preventDefault()
+    noteFont = item.dataset.font
+    applyFont(noteFont)
+    setFontLabel(noteFont)
+    document.getElementById('font-menu').querySelectorAll('.drop-item').forEach(i => i.classList.toggle('active', i === item))
+    closeAll()
+    editor.focus()
+    schedSave()
+  })
+})
+
+function applyFont(font) {
+  const family = font === 'system' ? SYSTEM_FONT : font
+  editor.style.setProperty('font-family', family, 'important')
+  editor.querySelectorAll('*').forEach(el => el.style.removeProperty('font-family'))
+}
+
+// Strip pasted font-family so note font is preserved
+editor.addEventListener('paste', () => {
+  setTimeout(() => applyFont(noteFont), 0)
+})
+
+// ── Font size ──
+let savedSizeRange = null
+
+document.getElementById('size-btn').addEventListener('mousedown', e => {
+  const sel = window.getSelection()
+  savedSizeRange = sel && sel.rangeCount > 0 && !sel.isCollapsed
+    ? sel.getRangeAt(0).cloneRange() : null
+  togglePopup(sizePop, e)
+})
+
+document.getElementById('size-menu').querySelectorAll('.drop-item').forEach(item => {
+  item.addEventListener('mousedown', e => {
+    e.preventDefault()
+    const px = parseInt(item.dataset.size)
+    noteSize = px
+    if (savedSizeRange) {
+      const span = document.createElement('span')
+      span.style.fontSize = px + 'px'
+      span.appendChild(savedSizeRange.extractContents())
+      // Flatten any nested size spans so re-sizing the same text doesn't accumulate wrappers
+      span.querySelectorAll('span').forEach(inner => inner.style.removeProperty('font-size'))
+      savedSizeRange.insertNode(span)
+      // If span landed inside a parent size-span as its only child, collapse them
+      const par = span.parentElement
+      if (par && par !== editor && par.tagName === 'SPAN' && par.style.fontSize && par.childNodes.length === 1) {
+        par.style.removeProperty('font-size')
+        if (!par.style.cssText.trim()) par.replaceWith(span)
+      }
+      savedSizeRange = null
+    }
+    sizeLabel.textContent = item.dataset.label
+    document.getElementById('size-menu').querySelectorAll('.drop-item').forEach(i => i.classList.toggle('active', i === item))
+    closeAll()
+    editor.focus()
+    schedSave()
+  })
+})
+
+// ── Bold / Strike / List — mousedown+preventDefault keeps selection active ──
+document.getElementById('btn-bold').addEventListener('mousedown', e => {
+  e.preventDefault(); document.execCommand('bold')
+})
+document.getElementById('btn-strike').addEventListener('mousedown', e => {
+  e.preventDefault(); document.execCommand('strikeThrough')
+})
+document.getElementById('btn-list').addEventListener('mousedown', e => {
+  e.preventDefault()
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return
+
+  const range = sel.getRangeAt(0)
+
+  // Returns the direct child of editor that contains `node`, or null if outside editor.
+  function editorBlock(node) {
+    if (node.nodeType === 3) node = node.parentNode
+    if (!editor.contains(node) || node === editor) return null
+    while (node.parentNode !== editor) node = node.parentNode
+    return node
+  }
+
+  const startNode = range.startContainer.nodeType === 3
+    ? range.startContainer.parentNode : range.startContainer
+
+  // Check if selection starts inside a list item
+  let li = null
+  for (let n = startNode; n && n !== editor; n = n.parentNode) {
+    if (n.nodeName === 'LI') { li = n; break }
+  }
+
+  if (li) {
+    const ul = li.parentNode
+    // Find end LI — may differ from start LI when selection spans multiple items
+    let endLi = li
+    const endNode = range.endContainer.nodeType === 3 ? range.endContainer.parentNode : range.endContainer
+    for (let n = endNode; n && n !== editor; n = n.parentNode) {
+      if (n.nodeName === 'LI' && n.parentNode === ul) { endLi = n; break }
+    }
+    const allLis = Array.from(ul.children)
+    const si = allLis.indexOf(li)
+    const ei = allLis.indexOf(endLi)
+    const selectedLis = allLis.slice(Math.min(si, ei), Math.max(si, ei) + 1)
+    const frag = document.createDocumentFragment()
+    selectedLis.forEach(item => {
+      const div = document.createElement('div')
+      while (item.firstChild) div.appendChild(item.firstChild)
+      frag.appendChild(div)
+    })
+    // Insert divs where the selected LIs were, then remove them
+    selectedLis[0].before(frag)
+    selectedLis.forEach(item => item.remove())
+    if (ul.children.length === 0) ul.remove()
+  } else {
+    const startBlock = editorBlock(range.startContainer)
+    const endBlock   = editorBlock(range.endContainer) || startBlock
+    if (!startBlock) { syncActive(); return }
+
+    // Collect all direct-editor-child blocks spanning the selection
+    const children = Array.from(editor.children)
+    const si = children.indexOf(startBlock)
+    const ei = children.indexOf(endBlock)
+    const blocks = children.slice(si, Math.max(si, ei) + 1)
+
+    const ul = document.createElement('ul')
+    blocks.forEach(block => {
+      const newLi = document.createElement('li')
+      while (block.firstChild) newLi.appendChild(block.firstChild)
+      ul.appendChild(newLi)
+    })
+    startBlock.before(ul)
+    blocks.forEach(b => b.remove())
+    applyFont(noteFont)
+
+    // Place cursor at end of last li
+    const lastLi = ul.lastElementChild
+    const r = document.createRange()
+    r.selectNodeContents(lastLi)
+    r.collapse(false)
+    sel.removeAllRanges()
+    sel.addRange(r)
+  }
+
+  syncActive()
+  schedSave()
+})
+editor.addEventListener('keydown', e => {
+  if (e.metaKey && e.key === 'b') { e.preventDefault(); document.execCommand('bold') }
+})
+
+// ── Link — open on click, ⌘+click or click when no text is selected ──
+editor.addEventListener('click', e => {
+  const a = e.target.closest('a')
+  if (!a) return
+  const sel = window.getSelection()
+  if (sel && !sel.isCollapsed) return
+  e.preventDefault()
+  window.api.openUrl(a.getAttribute('href'))
+})
+
+let savedRange = null
+
+document.getElementById('btn-link').addEventListener('mousedown', e => {
+  e.preventDefault()
+  // Save selection before opening popup
+  const sel = window.getSelection()
+  savedRange = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null
+  togglePopup(linkPop, e)
+  setTimeout(() => linkInput.focus(), 50)
+})
+
+document.getElementById('link-apply').addEventListener('mousedown', e => {
+  e.preventDefault()
+  const url = linkInput.value.trim()
+  if (url && savedRange) {
+    const sel = window.getSelection()
+    sel.removeAllRanges()
+    sel.addRange(savedRange)
+    document.execCommand('createLink', false, url)
+  }
+  linkInput.value = ''
+  savedRange = null
+  closeAll()
+  schedSave()
+})
+linkInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter') document.getElementById('link-apply').dispatchEvent(new MouseEvent('mousedown'))
+  if (e.key === 'Escape') closeAll()
+})
+
+// ── Active state sync ──
+const btnBold   = document.getElementById('btn-bold')
+const btnStrike = document.getElementById('btn-strike')
+const btnList   = document.getElementById('btn-list')
+
+const btnLink = document.getElementById('btn-link')
+
+function cursorInList() {
+  const sel = window.getSelection()
+  if (!sel || sel.rangeCount === 0) return false
+  let node = sel.getRangeAt(0).startContainer
+  while (node && node !== editor) {
+    if (node.nodeName === 'LI') return true
+    node = node.parentNode
+  }
+  return false
+}
+
+function syncActive() {
+  btnBold.classList.toggle('active',   document.queryCommandState('bold'))
+  btnStrike.classList.toggle('active', document.queryCommandState('strikeThrough'))
+  btnList.classList.toggle('active',   cursorInList())
+  const hasSel = window.getSelection() && !window.getSelection().isCollapsed
+  btnLink.style.opacity = hasSel ? '1' : '0.35'
+  btnLink.style.pointerEvents = hasSel ? '' : 'none'
+}
+editor.addEventListener('keyup', syncActive)
+editor.addEventListener('mouseup', syncActive)
+
+// ── Save ──
+function schedSave() {
+  clearTimeout(saveTimer)
+  saveTimer = setTimeout(() => {
+    if (!noteId) return
+    window.api.saveNote({ id: noteId, content: editor.innerHTML, color: noteColor, font: noteFont, size: noteSize })
+  }, 400)
+}
+editor.addEventListener('input', schedSave)
+
+// ── Window controls ──
+document.getElementById('btn-close').addEventListener('click', () => {
+  if (noteId) { clearTimeout(saveTimer); window.api.deleteNote({ id: noteId }) }
+})
+document.getElementById('btn-new').addEventListener('click', () => window.api.newNote())
+
+// ── Init ──
+window.api.initNote(data => {
+  noteId = data.id
+  if (data.color) setColor(data.color)
+  if (data.content != null) editor.innerHTML = data.content
+  if (data.size) {
+    noteSize = data.size
+    editor.style.fontSize = noteSize + 'px'
+    const match = document.querySelector(`#size-menu [data-size="${data.size}"]`)
+    if (match) {
+      document.getElementById('size-menu').querySelectorAll('.drop-item').forEach(i => i.classList.toggle('active', i === match))
+      sizeLabel.textContent = match.dataset.label
+    }
+  }
+  if (data.font) {
+    noteFont = data.font
+    applyFont(data.font)
+    setFontLabel(data.font)
+    const match = [...document.querySelectorAll('#font-menu [data-font]')].find(el => el.dataset.font === data.font)
+    if (match) document.getElementById('font-menu').querySelectorAll('.drop-item').forEach(i => i.classList.toggle('active', i === match))
+  }
+})
+</script>
+</body>
+</html>

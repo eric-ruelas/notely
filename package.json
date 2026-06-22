@@ -1,0 +1,40 @@
+{
+  "name": "sticky-notes",
+  "version": "1.0.0",
+  "description": "FigJam-style sticky notes for macOS",
+  "productName": "Stickies",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "build": "node make-icon.js && electron-builder --mac"
+  },
+  "build": {
+    "appId": "com.ericruelas.stickies",
+    "productName": "Stickies",
+    "mac": {
+      "icon": "build/icon.png",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Stickies"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "note.html",
+      "package.json"
+    ]
+  },
+  "devDependencies": {
+    "electron": "^29.0.0",
+    "electron-builder": "^26.15.3"
+  }
+}
