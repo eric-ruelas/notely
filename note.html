@@ -352,7 +352,15 @@ function showToolbar() { toolbarWrap.classList.add('active') }
 function hideToolbar() { toolbarWrap.classList.remove('active'); closeAll() }
 
 editor.addEventListener('click', showToolbar)
-window.api.onBlur(()  => hideToolbar())
+window.api.onBlur(() => {
+  hideToolbar()
+  // Flush any pending save immediately so content isn't lost if the app quits
+  if (saveTimer && noteId) {
+    clearTimeout(saveTimer)
+    saveTimer = null
+    window.api.saveNote({ id: noteId, content: editor.innerHTML, color: noteColor, font: noteFont, size: noteSize })
+  }
+})
 window.api.onFocus(() => showToolbar())
 
 // ── Popup management ──
@@ -548,6 +556,16 @@ document.getElementById('btn-list').addEventListener('mousedown', e => {
 })
 editor.addEventListener('keydown', e => {
   if (e.metaKey && e.key === 'b') { e.preventDefault(); document.execCommand('bold') }
+  if (e.metaKey && e.shiftKey && e.key === 'x') { e.preventDefault(); document.execCommand('strikeThrough') }
+  if (e.metaKey && e.key === 'k') {
+    e.preventDefault()
+    const sel = window.getSelection()
+    savedRange = sel && sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null
+    closeAll()
+    linkPop.classList.add('open')
+    showToolbar()
+    setTimeout(() => linkInput.focus(), 50)
+  }
 })
 
 // ── Link — open on click, ⌘+click or click when no text is selected ──

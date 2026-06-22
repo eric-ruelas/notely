@@ -2,7 +2,8 @@ const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, shell } = 
 const path = require('path')
 const fs = require('fs')
 
-const NOTES_FILE = path.join(app.getPath('userData'), 'sticky-notes.json')
+const NOTES_FILE     = path.join(app.getPath('userData'), 'notely.json')
+const NOTES_FILE_OLD = path.join(app.getPath('userData'), 'sticky-notes.json')
 const TOOLBAR_H = 0
 const noteWindows = new Map()
 const geoTimers = new Map()
@@ -13,6 +14,10 @@ let diskWriteTimer = null
 function loadNotes() {
   if (notesCache) return notesCache
   try {
+    // Migrate from old filename if needed
+    if (!fs.existsSync(NOTES_FILE) && fs.existsSync(NOTES_FILE_OLD)) {
+      fs.renameSync(NOTES_FILE_OLD, NOTES_FILE)
+    }
     if (fs.existsSync(NOTES_FILE)) {
       const parsed = JSON.parse(fs.readFileSync(NOTES_FILE, 'utf8'))
       if (Array.isArray(parsed)) notesCache = parsed
@@ -55,12 +60,21 @@ function persistGeometry(id) {
 function nextNotePosition() {
   const notes = loadNotes()
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
-  // Cascade diagonally; wrap before going off-screen
   const step = 30
   const maxSteps = Math.floor(Math.min(sw - 480, sh - 500) / step)
   const safe = Math.max(maxSteps, 1)
   const idx = notes.length % safe
   return { x: 100 + idx * step, y: 100 + idx * step }
+}
+
+function spawnNewNote() {
+  const id = String(Date.now())
+  const notes = loadNotes()
+  const { x, y } = nextNotePosition()
+  const note = { id, content: '', color: '#BFD7FF', x, y, width: 380, height: 400 }
+  notes.push(note)
+  saveNotes(notes)
+  createNote(note)
 }
 
 function createNote(noteData) {
@@ -76,7 +90,7 @@ function createNote(noteData) {
   const win = new BrowserWindow({
     x, y,
     width: cardW,
-    height: cardH + TOOLBAR_H,   // extra space for the floating toolbar
+    height: cardH + TOOLBAR_H,
     minWidth: 380,
     minHeight: 200,
     frame: false,
@@ -104,8 +118,8 @@ function createNote(noteData) {
     clearTimeout(geoTimers.get(id))
     geoTimers.delete(id)
   })
-  win.on('blur',    () => { if (!win.isDestroyed()) win.webContents.send('window-blur') })
-  win.on('focus',   () => { if (!win.isDestroyed()) win.webContents.send('window-focus') })
+  win.on('blur',  () => { if (!win.isDestroyed()) win.webContents.send('window-blur') })
+  win.on('focus', () => { if (!win.isDestroyed()) win.webContents.send('window-focus') })
 
   noteWindows.set(id, win)
   return id
@@ -117,21 +131,11 @@ app.whenReady().then(() => {
   try {
     tray = new Tray(nativeImage.createEmpty())
     tray.setTitle('🗒')
-    tray.setToolTip('Sticky Notes')
+    tray.setToolTip('Notely')
   } catch (e) { console.error('Tray:', e) }
 
   const buildMenu = () => Menu.buildFromTemplate([
-    {
-      label: 'New Note', click: () => {
-        const id = String(Date.now())
-        const notes = loadNotes()
-        const { x, y } = nextNotePosition()
-        const note = { id, content: '', color: '#BFD7FF', x, y, width: 380, height: 400 }
-        notes.push(note)
-        saveNotes(notes)
-        createNote(note)
-      }
-    },
+    { label: 'New Note', click: spawnNewNote },
     { type: 'separator' },
     { label: 'Quit', click: () => app.quit() },
   ])
@@ -179,19 +183,12 @@ ipcMain.on('delete-note', (_e, { id }) => {
   let notes = loadNotes()
   notes = notes.filter(n => n.id !== id)
   saveNotes(notes)
+  flushNotes()
   const win = noteWindows.get(id)
   if (win && !win.isDestroyed()) win.close()
 })
 
-ipcMain.on('new-note', () => {
-  const id = String(Date.now())
-  const notes = loadNotes()
-  const { x, y } = nextNotePosition()
-  const note = { id, content: '', color: '#BFD7FF', x, y, width: 380, height: 400 }
-  notes.push(note)
-  saveNotes(notes)
-  createNote(note)
-})
+ipcMain.on('new-note', spawnNewNote)
 
 app.on('before-quit', flushNotes)
 app.on('window-all-closed', () => { /* keep tray alive */ })
