@@ -2,8 +2,6 @@
 
 Floating sticky notes for macOS. Lives in your menu bar, stays out of your way.
 
-![Notely](https://github.com/eric-ruelas/notely/assets/placeholder/preview.png)
-
 ## Features
 
 - Multiple notes, each in its own floating window
