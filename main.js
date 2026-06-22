@@ -50,7 +50,7 @@ function persistGeometry(id) {
     const notes = loadNotes()
     const idx = notes.findIndex(n => n.id === id)
     if (idx >= 0) {
-      notes[idx] = { ...notes[idx], x, y, width, height: height - 0 }
+      notes[idx] = { ...notes[idx], x, y, width, height }
       saveNotes(notes)
     }
   }, 300))
@@ -84,12 +84,12 @@ function createNote(noteData) {
   const cardH = noteData.height ?? 400
 
   const x = Math.round(Math.max(0, Math.min(noteData.x ?? 100, sw - cardW)))
-  const y = Math.round(Math.max(0, Math.min(noteData.y ?? 100, sh - cardH - 0)))
+  const y = Math.round(Math.max(0, Math.min(noteData.y ?? 100, sh - cardH)))
 
   const win = new BrowserWindow({
     x, y,
     width: cardW,
-    height: cardH + 0,
+    height: cardH,
     minWidth: 380,
     minHeight: 200,
     frame: false,
@@ -161,7 +161,7 @@ ipcMain.on('save-note', (_e, { id, content, color, font, size }) => {
     if (win && !win.isDestroyed()) {
       const [x, y] = win.getPosition()
       const [width, height] = win.getSize()
-      geo = { x, y, width, height: height - 0 }
+      geo = { x, y, width, height }
     }
     notes[idx] = { ...notes[idx], ...geo, content, color, font, size }
     saveNotes(notes)
