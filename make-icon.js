@@ -1,4 +1,14 @@
 const fs = require('fs')
+
+fs.mkdirSync('build', { recursive: true })
+
+// Skip if a real icon already exists
+if (fs.existsSync('build/icon.png')) {
+  console.log('✓ build/icon.png already exists, skipping placeholder')
+  process.exit(0)
+}
+
+// Fallback: generate a plain placeholder so builds never fail without an icon
 const zlib = require('zlib')
 
 function makePNG(size, r, g, b) {
@@ -15,7 +25,7 @@ function makePNG(size, r, g, b) {
   }
   const ihdr=Buffer.alloc(13)
   ihdr.writeUInt32BE(size,0); ihdr.writeUInt32BE(size,4)
-  ihdr[8]=8; ihdr[9]=2 // 8-bit RGB
+  ihdr[8]=8; ihdr[9]=2
   const raw=[]; for(let y=0;y<size;y++){raw.push(0);for(let x=0;x<size;x++)raw.push(r,g,b)}
   return Buffer.concat([
     Buffer.from([137,80,78,71,13,10,26,10]),
@@ -25,6 +35,5 @@ function makePNG(size, r, g, b) {
   ])
 }
 
-fs.mkdirSync('build',{recursive:true})
 fs.writeFileSync('build/icon.png', makePNG(1024, 255, 220, 80))
-console.log('✓ build/icon.png created')
+console.log('✓ build/icon.png created (placeholder)')
