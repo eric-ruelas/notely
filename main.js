@@ -54,17 +54,21 @@ function persistGeometry(id) {
 
 function nextNotePosition() {
   const notes = loadNotes()
-  const col = notes.length % 6
-  const row = Math.floor(notes.length / 6) % 5
-  return { x: 100 + col * 40, y: 100 + row * 40 }
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  // Cascade diagonally; wrap before going off-screen
+  const step = 30
+  const maxSteps = Math.floor(Math.min(sw - 480, sh - 500) / step)
+  const safe = Math.max(maxSteps, 1)
+  const idx = notes.length % safe
+  return { x: 100 + idx * step, y: 100 + idx * step }
 }
 
 function createNote(noteData) {
   const id = noteData.id || String(Date.now())
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
 
-  const cardW = noteData.width  ?? 300
-  const cardH = noteData.height ?? 360
+  const cardW = noteData.width  ?? 380
+  const cardH = noteData.height ?? 400
 
   const x = Math.round(Math.max(0, Math.min(noteData.x ?? 100, sw - cardW)))
   const y = Math.round(Math.max(0, Math.min(noteData.y ?? 100, sh - cardH - TOOLBAR_H)))
@@ -129,7 +133,7 @@ app.whenReady().then(() => {
       }
     },
     { type: 'separator' },
-    { label: 'Quit', click: () => app.exit(0) },
+    { label: 'Quit', click: () => app.quit() },
   ])
 
   if (tray) {

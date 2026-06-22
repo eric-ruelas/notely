@@ -1,7 +1,7 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('api', {
-  initNote: (cb) => ipcRenderer.on('init-note', (_e, data) => cb(data)),
+  initNote: (cb) => ipcRenderer.once('init-note', (_e, data) => cb(data)),
   saveNote: (data) => ipcRenderer.send('save-note', data),
   deleteNote: (data) => ipcRenderer.send('delete-note', data),
   newNote: () => ipcRenderer.send('new-note'),

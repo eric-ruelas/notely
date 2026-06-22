@@ -431,14 +431,24 @@ document.getElementById('size-menu').querySelectorAll('.drop-item').forEach(item
       const span = document.createElement('span')
       span.style.fontSize = px + 'px'
       span.appendChild(savedSizeRange.extractContents())
-      // Flatten any nested size spans so re-sizing the same text doesn't accumulate wrappers
-      span.querySelectorAll('span').forEach(inner => inner.style.removeProperty('font-size'))
+      // Only strip font-size from direct-child spans (same-level re-size), not deeper nesting
+      // that the user intentionally applied to inner words.
+      span.childNodes.forEach(child => {
+        if (child.nodeType === 1 && child.tagName === 'SPAN') child.style.removeProperty('font-size')
+      })
       savedSizeRange.insertNode(span)
-      // If span landed inside a parent size-span as its only child, collapse them
+      // If span replaced all meaningful content of a parent size-span, collapse them.
+      // "Meaningful" = non-empty text nodes or elements. Empty text nodes from extractContents
+      // splitting are ignored so a partial selection doesn't block the collapse.
       const par = span.parentElement
-      if (par && par !== editor && par.tagName === 'SPAN' && par.style.fontSize && par.childNodes.length === 1) {
-        par.style.removeProperty('font-size')
-        if (!par.style.cssText.trim()) par.replaceWith(span)
+      if (par && par !== editor && par.tagName === 'SPAN' && par.style.fontSize) {
+        const significant = Array.from(par.childNodes).filter(
+          n => n !== span && !(n.nodeType === 3 && n.textContent === '')
+        )
+        if (significant.length === 0) {
+          par.style.removeProperty('font-size')
+          if (!par.style.cssText.trim()) par.replaceWith(span)
+        }
       }
       savedSizeRange = null
     }
