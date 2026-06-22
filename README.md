@@ -30,6 +30,14 @@ npm run build
 
 Outputs a `.app` bundle to `dist/`.
 
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|----------|--------|
+| `⌘B` | Bold |
+| `⌘⇧X` | Strikethrough |
+| `⌘K` | Insert link |
+
 ## Stack
 
 - [Electron](https://electronjs.org) — desktop shell
