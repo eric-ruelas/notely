@@ -183,6 +183,29 @@ app.whenReady().then(() => {
     tray.on('click', () => tray.setContextMenu(buildMenu()))
   }
 
+  Menu.setApplicationMenu(Menu.buildFromTemplate([
+    {
+      label: 'Notely',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    },
+    {
+      label: 'File',
+      submenu: [
+        { label: 'New Note', accelerator: 'CmdOrCtrl+N', click: spawnNewNote },
+        { type: 'separator' },
+        { role: 'close' },
+      ],
+    },
+  ]))
+
   // Silently check for updates shortly after launch
   setTimeout(() => checkForUpdates(true), 5000)
 
