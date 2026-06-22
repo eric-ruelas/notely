@@ -1,14 +1,16 @@
-const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, Tray, Menu, nativeImage, screen, shell, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
 
 const NOTES_FILE     = path.join(app.getPath('userData'), 'notely.json')
 const NOTES_FILE_OLD = path.join(app.getPath('userData'), 'sticky-notes.json')
+const GITHUB_RELEASES = 'https://api.github.com/repos/eric-ruelas/notely/releases/latest'
 const noteWindows = new Map()
 const geoTimers = new Map()
 let tray = null
 let notesCache = null
 let diskWriteTimer = null
+let pendingUpdate = null  // { version, url } when a newer release is found
 
 function loadNotes() {
   if (notesCache) return notesCache
@@ -64,6 +66,49 @@ function nextNotePosition() {
   const safe = Math.max(maxSteps, 1)
   const idx = notes.length % safe
   return { x: 100 + idx * step, y: 100 + idx * step }
+}
+
+function buildMenu() {
+  return Menu.buildFromTemplate([
+    pendingUpdate
+      ? { label: `Update Available — v${pendingUpdate.version}`, click: promptUpdate }
+      : { label: 'Check for Updates', click: () => checkForUpdates(false) },
+    { type: 'separator' },
+    { label: 'New Note', click: spawnNewNote },
+    { type: 'separator' },
+    { label: 'Quit', click: () => app.quit() },
+  ])
+}
+
+async function checkForUpdates(silent = true) {
+  try {
+    const res = await fetch(GITHUB_RELEASES, { headers: { 'User-Agent': 'Notely' } })
+    if (!res.ok) return
+    const data = await res.json()
+    const latest = data.tag_name?.replace(/^v/, '')
+    const current = app.getVersion()
+    if (!latest || latest === current) {
+      if (!silent) dialog.showMessageBox({ type: 'info', title: 'Notely', message: `You're up to date! (v${current})`, buttons: ['OK'] })
+      return
+    }
+    pendingUpdate = { version: latest, url: data.html_url }
+    if (tray) tray.setContextMenu(buildMenu())
+    if (!silent) promptUpdate()
+  } catch {}
+}
+
+function promptUpdate() {
+  if (!pendingUpdate) return
+  dialog.showMessageBox({
+    type: 'info',
+    title: 'Update Available',
+    message: `Notely v${pendingUpdate.version} is available`,
+    detail: `You're running v${app.getVersion()}. Download the latest version?`,
+    buttons: ['Download', 'Later'],
+    defaultId: 0,
+  }).then(({ response }) => {
+    if (response === 0) shell.openExternal(pendingUpdate.url)
+  })
 }
 
 function spawnNewNote() {
@@ -133,16 +178,13 @@ app.whenReady().then(() => {
     tray.setToolTip('Notely')
   } catch (e) { console.error('Tray:', e) }
 
-  const buildMenu = () => Menu.buildFromTemplate([
-    { label: 'New Note', click: spawnNewNote },
-    { type: 'separator' },
-    { label: 'Quit', click: () => app.quit() },
-  ])
-
   if (tray) {
     tray.setContextMenu(buildMenu())
     tray.on('click', () => tray.setContextMenu(buildMenu()))
   }
+
+  // Silently check for updates shortly after launch
+  setTimeout(() => checkForUpdates(true), 5000)
 
   const notes = loadNotes()
   if (notes.length === 0) {
