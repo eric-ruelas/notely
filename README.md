@@ -1,6 +1,8 @@
 # Notely
 
-Floating sticky notes for macOS. Lives in your menu bar, stays out of your way.
+macOS Stickies is fine — it has worked well enough, but it comes with limitations. You can't easily change the font, adjust font sizes, or even swap the color. And honestly, they just lack creativity.
+
+So I built Notely — a sticky notes app styled after FigJam's stickies, designed to be easier to customize and a little more fun to use.
 
 ![Notely screenshot](screenshot.png)
 
@@ -30,7 +32,13 @@ Requires [Node.js](https://nodejs.org) and [Electron](https://electronjs.org) (i
 npm run build
 ```
 
-Outputs a `.app` bundle to `dist/`.
+Outputs a `.dmg` installer to `dist/`. Open it and drag Notely to your Applications folder.
+
+Or install directly in one step:
+
+```bash
+npm run install-app
+```
 
 ## Keyboard shortcuts
 
