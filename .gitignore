@@ -1,14 +1,3 @@
-# Dependencies
 node_modules/
-
-# Build output
 dist/
-
-# Claude Code local settings
-.claude/
-
-# ShipStudio metadata
-.shipstudio/
-
-# Debug / dev scripts (not part of the app)
-debug-font.mjs
+.DS_Store
