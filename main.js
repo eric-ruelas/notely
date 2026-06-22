@@ -4,7 +4,6 @@ const fs = require('fs')
 
 const NOTES_FILE     = path.join(app.getPath('userData'), 'notely.json')
 const NOTES_FILE_OLD = path.join(app.getPath('userData'), 'sticky-notes.json')
-const TOOLBAR_H = 0
 const noteWindows = new Map()
 const geoTimers = new Map()
 let tray = null
@@ -51,7 +50,7 @@ function persistGeometry(id) {
     const notes = loadNotes()
     const idx = notes.findIndex(n => n.id === id)
     if (idx >= 0) {
-      notes[idx] = { ...notes[idx], x, y, width, height: height - TOOLBAR_H }
+      notes[idx] = { ...notes[idx], x, y, width, height: height - 0 }
       saveNotes(notes)
     }
   }, 300))
@@ -85,12 +84,12 @@ function createNote(noteData) {
   const cardH = noteData.height ?? 400
 
   const x = Math.round(Math.max(0, Math.min(noteData.x ?? 100, sw - cardW)))
-  const y = Math.round(Math.max(0, Math.min(noteData.y ?? 100, sh - cardH - TOOLBAR_H)))
+  const y = Math.round(Math.max(0, Math.min(noteData.y ?? 100, sh - cardH - 0)))
 
   const win = new BrowserWindow({
     x, y,
     width: cardW,
-    height: cardH + TOOLBAR_H,
+    height: cardH + 0,
     minWidth: 380,
     minHeight: 200,
     frame: false,
@@ -107,7 +106,7 @@ function createNote(noteData) {
 
   win.loadFile('note.html')
   win.webContents.on('did-finish-load', () => {
-    win.webContents.send('init-note', { ...noteData, id, toolbarH: TOOLBAR_H })
+    win.webContents.send('init-note', { ...noteData, id })
     win.show()
   })
 
@@ -147,10 +146,7 @@ app.whenReady().then(() => {
 
   const notes = loadNotes()
   if (notes.length === 0) {
-    const id = String(Date.now())
-    const note = { id, content: '', color: '#BFD7FF', x: 100, y: 100, width: 380, height: 400 }
-    saveNotes([note])
-    createNote(note)
+    spawnNewNote()
   } else {
     notes.forEach(n => createNote(n))
   }
@@ -165,7 +161,7 @@ ipcMain.on('save-note', (_e, { id, content, color, font, size }) => {
     if (win && !win.isDestroyed()) {
       const [x, y] = win.getPosition()
       const [width, height] = win.getSize()
-      geo = { x, y, width, height: height - TOOLBAR_H }
+      geo = { x, y, width, height: height - 0 }
     }
     notes[idx] = { ...notes[idx], ...geo, content, color, font, size }
     saveNotes(notes)
