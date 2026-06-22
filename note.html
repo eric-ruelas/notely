@@ -415,9 +415,16 @@ function applyFont(font) {
   editor.querySelectorAll('*').forEach(el => el.style.removeProperty('font-family'))
 }
 
-// Strip pasted font-family so note font is preserved
+// Strip font-family and font-size from pasted content so note style is preserved
 editor.addEventListener('paste', () => {
-  setTimeout(() => applyFont(noteFont), 0)
+  setTimeout(() => {
+    editor.querySelectorAll('*').forEach(el => {
+      el.style.removeProperty('font-family')
+      el.style.removeProperty('font-size')
+      if (!el.style.cssText.trim()) el.removeAttribute('style')
+    })
+    applyFont(noteFont)
+  }, 0)
 })
 
 // ── Font size ──
