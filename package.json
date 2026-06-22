@@ -1,16 +1,16 @@
 {
-  "name": "sticky-notes",
+  "name": "notely",
   "version": "1.0.0",
   "description": "FigJam-style sticky notes for macOS",
-  "productName": "Stickies",
+  "productName": "Notely",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "build": "node make-icon.js && electron-builder --mac"
   },
   "build": {
-    "appId": "com.ericruelas.stickies",
-    "productName": "Stickies",
+    "appId": "com.ericruelas.notely",
+    "productName": "Notely",
     "mac": {
       "icon": "build/icon.png",
       "category": "public.app-category.productivity",
@@ -24,7 +24,7 @@
       ]
     },
     "dmg": {
-      "title": "Stickies"
+      "title": "Notely"
     },
     "files": [
       "main.js",
