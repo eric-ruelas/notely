@@ -162,8 +162,8 @@ function createNote(noteData) {
     clearTimeout(geoTimers.get(id))
     geoTimers.delete(id)
   })
-  win.on('blur',  () => { if (!win.isDestroyed()) win.webContents.send('window-blur') })
-  win.on('focus', () => { if (!win.isDestroyed()) win.webContents.send('window-focus') })
+  win.on('blur',       () => { if (!win.isDestroyed()) win.webContents.send('window-blur') })
+  win.on('focus',      () => { if (!win.isDestroyed()) win.webContents.send('window-focus') })
 
   noteWindows.set(id, win)
   return id
@@ -263,6 +263,52 @@ ipcMain.on('delete-note', (_e, { id }) => {
 })
 
 ipcMain.on('new-note', spawnNewNote)
+
+const collapsedNotes = new Map() // id -> { width, height }
+
+ipcMain.on('minimize-note', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win || win.isDestroyed()) return
+  const id = [...noteWindows.entries()].find(([, w]) => w === win)?.[0]
+  if (collapsedNotes.has(id)) {
+    const { width, height } = collapsedNotes.get(id)
+    collapsedNotes.delete(id)
+    win.setMinimumSize(380, 200)
+    win.setSize(width, height)
+    win.setResizable(true)
+    setTimeout(() => {
+      if (!win.isDestroyed()) win.webContents.send('window-collapsed', false)
+    }, 50)
+  } else {
+    const [width, height] = win.getSize()
+    collapsedNotes.set(id, { width, height })
+    win.webContents.send('window-collapsed', true)
+    setTimeout(() => {
+      if (!win.isDestroyed()) {
+        win.setResizable(false)
+        win.setMinimumSize(380, 36)
+        win.setSize(width, 36)
+      }
+    }, 150)
+  }
+})
+
+const zoomedNotes = new Set()
+
+ipcMain.on('zoom-note', (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender)
+  if (!win || win.isDestroyed()) return
+  const id = [...noteWindows.entries()].find(([, w]) => w === win)?.[0]
+  if (zoomedNotes.has(id)) {
+    zoomedNotes.delete(id)
+    win.unmaximize()
+    win.webContents.send('window-maximized', false)
+  } else {
+    zoomedNotes.add(id)
+    win.maximize()
+    win.webContents.send('window-maximized', true)
+  }
+})
 
 app.on('before-quit', flushNotes)
 app.on('window-all-closed', () => { /* keep tray alive */ })

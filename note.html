@@ -29,6 +29,7 @@
     box-shadow: 0 8px 30px rgba(0,0,0,0.22), 0 2px 6px rgba(0,0,0,0.1);
     overflow: hidden;
     position: relative;
+    transition: border-radius 0.2s;
   }
 
   /* Title bar / drag handle */
@@ -52,8 +53,36 @@
     display: flex; align-items: center; justify-content: center;
   }
   .btn-dot:hover { color: rgba(0,0,0,0.5); }
-  .btn-close { background: #FF5F57; }
-  .btn-new   { background: #28C941; }
+  .btn-close    { background: #FF5F57; }
+  .btn-minimize { background: #FEBC2E; }
+  .btn-zoom     { background: #28C941; }
+
+  body.blurred .btn-close,
+  body.blurred .btn-minimize,
+  body.blurred .btn-zoom { background: #C0BFC0; }
+
+  .btn-dot svg { opacity: 0; transition: opacity 0.1s; }
+  .actions:hover .btn-dot svg { opacity: 1; }
+
+  /* Collapsed state */
+  body.collapsed .editor-wrap,
+  body.collapsed .toolbar-wrap { display: none; }
+  body.collapsed .card { border-radius: 8px; }
+  body.collapsed .titlebar {
+    height: 36px;
+    padding: 0 12px;
+    justify-content: space-between;
+  }
+  body.collapsed .actions { opacity: 0; }
+  body.collapsed:hover .actions { opacity: 1; }
+  .preview-text {
+    flex: 1; font-size: 12px; font-weight: 500;
+    color: rgba(0,0,0,0.65);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    display: none; user-select: none;
+    padding-right: 8px;
+  }
+  body.collapsed .preview-text { display: block; }
 
   /* Editor */
   .editor-wrap {
@@ -134,7 +163,7 @@
     white-space: nowrap; flex-shrink: 0;
   }
   .tb-drop-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
-  .tb-drop-btn .caret { font-size: 8px; opacity: 0.5; }
+  .tb-drop-btn .caret { opacity: 0.5; display: flex; align-items: center; }
 
   /* Color dot button */
   .color-dot-btn {
@@ -224,9 +253,24 @@
 
   <!-- Drag bar -->
   <div class="titlebar">
+    <span class="preview-text" id="preview-text"></span>
     <div class="actions">
-      <button class="btn-dot btn-close" id="btn-close">✕</button>
-      <button class="btn-dot btn-new"   id="btn-new">+</button>
+      <button class="btn-dot btn-close" id="btn-close" title="Close">
+        <svg width="6" height="6" viewBox="0 0 6 6" fill="none"><line x1="0.5" y1="0.5" x2="5.5" y2="5.5" stroke="rgba(0,0,0,0.55)" stroke-width="1.4" stroke-linecap="round"/><line x1="5.5" y1="0.5" x2="0.5" y2="5.5" stroke="rgba(0,0,0,0.55)" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+      <button class="btn-dot btn-minimize" id="btn-minimize" title="Minimize">
+        <svg width="6" height="2" viewBox="0 0 6 2" fill="none"><line x1="0.5" y1="1" x2="5.5" y2="1" stroke="rgba(0,0,0,0.55)" stroke-width="1.4" stroke-linecap="round"/></svg>
+      </button>
+      <button class="btn-dot btn-zoom" id="btn-zoom" title="Zoom">
+        <svg id="zoom-icon" width="7" height="7" viewBox="0 0 7 7" fill="none">
+          <line x1="1" y1="1" x2="3" y2="1" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="1" y1="1" x2="1" y2="3" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="1" y1="1" x2="3.2" y2="3.2" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="6" y1="6" x2="4" y2="6" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="6" y1="6" x2="6" y2="4" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+          <line x1="6" y1="6" x2="3.8" y2="3.8" stroke="rgba(0,0,0,0.55)" stroke-width="1.3" stroke-linecap="round"/>
+        </svg>
+      </button>
     </div>
   </div>
 
@@ -248,13 +292,13 @@
 
       <!-- Font family -->
       <button class="tb-drop-btn" id="font-btn">
-        <span id="font-label">Aa</span><span class="caret">▾</span>
+        <span id="font-label">Aa</span><svg class="caret" width="8" height="8" viewBox="0 0 8 8" fill="none"><polyline points="1,2.5 4,5.5 7,2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="tb-sep"></div>
 
       <!-- Font size -->
       <button class="tb-drop-btn" id="size-btn">
-        <span id="size-label">Small</span><span class="caret">▾</span>
+        <span id="size-label">Small</span><svg class="caret" width="8" height="8" viewBox="0 0 8 8" fill="none"><polyline points="1,2.5 4,5.5 7,2.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="tb-sep"></div>
 
@@ -353,6 +397,7 @@ function hideToolbar() { toolbarWrap.classList.remove('active'); closeAll() }
 
 editor.addEventListener('click', showToolbar)
 window.api.onBlur(() => {
+  document.body.classList.add('blurred')
   hideToolbar()
   // Flush any pending save immediately so content isn't lost if the app quits
   if (saveTimer && noteId) {
@@ -361,7 +406,7 @@ window.api.onBlur(() => {
     window.api.saveNote({ id: noteId, content: editor.innerHTML, color: noteColor, font: noteFont, size: noteSize })
   }
 })
-window.api.onFocus(() => showToolbar())
+window.api.onFocus(() => { document.body.classList.remove('blurred'); showToolbar() })
 
 // ── Popup management ──
 const allPopups = [colorPop, fontPop, sizePop, linkPop]
@@ -477,10 +522,10 @@ document.getElementById('size-menu').querySelectorAll('.drop-item').forEach(item
 
 // ── Bold / Strike / List — mousedown+preventDefault keeps selection active ──
 document.getElementById('btn-bold').addEventListener('mousedown', e => {
-  e.preventDefault(); document.execCommand('bold')
+  e.preventDefault(); document.execCommand('bold'); applyFont(noteFont)
 })
 document.getElementById('btn-strike').addEventListener('mousedown', e => {
-  e.preventDefault(); document.execCommand('strikeThrough')
+  e.preventDefault(); document.execCommand('strikeThrough'); applyFont(noteFont)
 })
 document.getElementById('btn-list').addEventListener('mousedown', e => {
   e.preventDefault()
@@ -528,6 +573,7 @@ document.getElementById('btn-list').addEventListener('mousedown', e => {
     selectedLis[0].before(frag)
     selectedLis.forEach(item => item.remove())
     if (ul.children.length === 0) ul.remove()
+    applyFont(noteFont)
   } else {
     const startBlock = editorBlock(range.startContainer)
     const endBlock   = editorBlock(range.endContainer) || startBlock
@@ -562,8 +608,8 @@ document.getElementById('btn-list').addEventListener('mousedown', e => {
   schedSave()
 })
 editor.addEventListener('keydown', e => {
-  if (e.metaKey && e.key === 'b') { e.preventDefault(); document.execCommand('bold') }
-  if (e.metaKey && e.shiftKey && e.key === 'x') { e.preventDefault(); document.execCommand('strikeThrough') }
+  if (e.metaKey && e.key === 'b') { e.preventDefault(); document.execCommand('bold'); applyFont(noteFont) }
+  if (e.metaKey && e.shiftKey && e.key === 'x') { e.preventDefault(); document.execCommand('strikeThrough'); applyFont(noteFont) }
   if (e.metaKey && e.key === 'k') {
     e.preventDefault()
     const sel = window.getSelection()
@@ -658,7 +704,41 @@ editor.addEventListener('input', schedSave)
 document.getElementById('btn-close').addEventListener('click', () => {
   if (noteId) { clearTimeout(saveTimer); window.api.deleteNote({ id: noteId }) }
 })
-document.getElementById('btn-new').addEventListener('click', () => window.api.newNote())
+document.getElementById('btn-minimize').addEventListener('click', () => window.api.minimizeNote())
+document.getElementById('btn-zoom').addEventListener('click', () => window.api.zoomNote())
+
+const NS = 'http://www.w3.org/2000/svg'
+const ZOOM_PATHS_OUT = [
+  [1,1,3,1],[1,1,1,3],[1,1,3.2,3.2],[6,6,4,6],[6,6,6,4],[6,6,3.8,3.8]
+]
+const ZOOM_PATHS_IN = [
+  [1,3,3,1],[1,3,3,3],[1,1,1,3],[6,4,4,6],[4,6,4,4],[6,6,4,6]
+]
+
+function setZoomIcon(isMax) {
+  const svg = document.getElementById('zoom-icon')
+  while (svg.firstChild) svg.removeChild(svg.firstChild)
+  const paths = isMax ? ZOOM_PATHS_IN : ZOOM_PATHS_OUT
+  paths.forEach(([x1,y1,x2,y2]) => {
+    const line = document.createElementNS(NS, 'line')
+    line.setAttribute('x1', x1); line.setAttribute('y1', y1)
+    line.setAttribute('x2', x2); line.setAttribute('y2', y2)
+    line.setAttribute('stroke', 'rgba(0,0,0,0.55)')
+    line.setAttribute('stroke-width', '1.3')
+    line.setAttribute('stroke-linecap', 'round')
+    svg.appendChild(line)
+  })
+}
+
+window.api.onMaximized(isMax => setZoomIcon(isMax))
+
+window.api.onCollapsed(isCollapsed => {
+  document.body.classList.toggle('collapsed', isCollapsed)
+  if (isCollapsed) {
+    const text = editor.innerText.trim().split('\n')[0] || 'Empty note'
+    document.getElementById('preview-text').textContent = text
+  }
+})
 
 // ── Init ──
 window.api.initNote(data => {
